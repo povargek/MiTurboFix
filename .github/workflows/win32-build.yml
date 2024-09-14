@@ -1,0 +1,53 @@
+name: win32-build
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  DLL_NAME: MiTurboFix
+  DLL_FILE_NAME: MiTurboFix.asi
+  BUILD_TYPE: Release
+
+jobs:
+  analyze-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      previous-tag: ${{ steps.previoustag.outputs.tag }}
+      timestamp-diff: ${{ steps.diff.outputs.timestamp-diff }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git fetch --tags origin
+
+      - name: Get previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+      - name: Get seconds from previous tag to now
+        id: diff
+        shell: bash
+        env:
+          TIMESTAMP_TAG: ${{ steps.previoustag.outputs.timestamp }}
+        run: |
+          echo "{timestamp-diff}={$(expr $(printf '%(%s)T') - $TIMESTAMP_TAG)}" >> $GITHUB_OUTPUT
+  build:
+    needs: analyze-tags
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -A Win32
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      
+    - name: Archive DLL
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{env.DLL_NAME}}-${{env.BUILD_TYPE}}-${{ needs.analyze-tags.outputs.previous-tag }}-${{github.sha}}
+        path: ${{github.workspace}}/build/bin/${{env.BUILD_TYPE}}/${{env.DLL_FILE_NAME}}
