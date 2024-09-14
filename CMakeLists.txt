@@ -1,7 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.15)
 
 project ("MiTurboFix"
-	VERSION 1.0
+	VERSION 0.1
 )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -38,6 +38,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/main.cpp
 	src/Plugin.cpp
 	src/PluginRPC.cpp
+	src/RPCEnumerations.h
 	src/resource.h
 	src/Resource.rc
 )

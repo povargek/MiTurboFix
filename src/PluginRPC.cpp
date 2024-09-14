@@ -1,4 +1,6 @@
 #include "PluginRPC.h"
+#include "Plugin.h"
+
 #include <string>
 #include <vector>
 #include <numeric>
@@ -10,6 +12,7 @@
 #include <sampapi/CChat.h>
 #include <sampapi/CDialog.h>
 #include <RakNet/StringCompressor.h>
+#include "RPCEnumerations.h"
 
 
 #ifdef _DEBUG
@@ -49,19 +52,42 @@ bool BitStreamIgnoreString(RakNet::BitStream& bs, size_t max = 0) {
     return str.length() <= max;
 }
 
-std::string DialogSaintizeList(const std::string sInputString, char delim, size_t maxLineLen = 0) {
+ inline std::string PluginRPC::DialogSaintizeListItem(std::string token, size_t maxLineLen) {
+    size_t tokenLen = (maxLineLen > 0 && token.length() > maxLineLen) ? maxLineLen : token.length();
+
+#ifdef _DEBUG
+    if (maxLineLen > 0 && token.length() > maxLineLen) {
+        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad listitem len = %d", token.length());
+    }
+#endif
+
+    return token.substr(0, tokenLen);
+}
+
+
+std::string PluginRPC::DialogSaintizeList(const std::string sInputString, char delim, size_t maxLineLen) {
     std::vector<std::string> tokens;
-    std::istringstream iss(sInputString);
+    std::string s(sInputString);
+    std::string token;
+    std::string sDelim{ delim };
 
-    for (std::string token; std::getline(iss, token, delim); ) {
-        token.erase(std::remove(token.begin(), token.end(), '\r'), token.end());
+    size_t pos = 0;
 
-        size_t tokenLen = (maxLineLen > 0 && token.length() > maxLineLen) ? maxLineLen : token.length();
+    while ((pos = s.find(delim)) != std::string::npos) {
+        token = s.substr(0, pos);
 
         tokens.push_back(
-            token.substr(0, tokenLen)
+            DialogSaintizeListItem(token, maxLineLen)
         );
+
+        s.erase(0, pos + sDelim.length());
     }
+
+    s.resize(std::strlen(s.c_str())); // https://stackoverflow.com/questions/29302073/difference-between-strlenstr-c-str-and-str-length-for-stdstring
+
+    tokens.push_back(
+        DialogSaintizeListItem(s, maxLineLen)
+    );
 
     return std::accumulate(tokens.begin(), tokens.end(), std::string(),
         [delim](const std::string& a, const std::string& b) -> std::string {
@@ -70,7 +96,7 @@ std::string DialogSaintizeList(const std::string sInputString, char delim, size_
 }
 
 bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
-    if (id != 86) // RPC_ClientMessage
+    if (id != ScriptRPC::ApplyAnimation) // RPC_ApplyPlayerAnimation
         return true;
 
     bs->IgnoreBits(16); // wPlayerId;
@@ -82,7 +108,7 @@ bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
 
     if (sAnimLib.length() < 1 || sAnimLib.length() > iAnimLibMaxLen) {
 #ifdef _DEBUG
-        sampapi::v037r1::RefChat()->AddMessage(0xFFFFFFFF, "bad bAnimLibLength");
+        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
 #endif
 
         return false;
@@ -92,7 +118,7 @@ bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
 
     if (sAnimName.length() < 1 || sAnimName.length() > iAnimNameMaxLen) {
 #ifdef _DEBUG
-        sampapi::v037r1::RefChat()->AddMessage(0xFFFFFFFF, "bad bAnimNameLength");
+        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
 #endif
 
         return false;
@@ -102,10 +128,40 @@ bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
 }
 
 
+bool PluginRPC::ApplyActorAnimation(unsigned char& id, RakNet::BitStream* bs) {
+    if (id != ScriptRPC::ApplyActorAnimation) 
+        return true;
 
+    bs->IgnoreBits(16); // wActorID;
+
+    size_t iAnimLibMaxLen = 15;
+    size_t iAnimNameMaxLen = 24;
+
+    std::string sAnimLib = readWithSize<uint8_t>(*bs, iAnimLibMaxLen);
+
+    if (sAnimLib.length() < 1 || sAnimLib.length() > iAnimLibMaxLen) {
+#ifdef _DEBUG
+        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
+#endif
+
+        return false;
+    }
+
+    std::string sAnimName = readWithSize<uint8_t>(*bs, iAnimNameMaxLen);
+
+    if (sAnimName.length() < 1 || sAnimName.length() > iAnimNameMaxLen) {
+#ifdef _DEBUG
+        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
+#endif
+
+        return false;
+    }
+
+    return true;
+}
 
 bool PluginRPC::ShowPlayerDialog(unsigned char& id, RakNet::BitStream* bs) {
-    if (id != 61) // RPC_ShowDialog
+    if (id != ScriptRPC::ShowDialog) 
         return true;
 
     unsigned short sDialogID;
