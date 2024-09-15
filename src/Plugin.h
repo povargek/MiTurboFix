@@ -7,6 +7,18 @@
 using CTimerProto = void( __cdecl* )();
 using CMessagesProto = void(__cdecl*)(char* text, uint32_t duration, uint16_t style);
 
+constexpr auto REG_CONFIG_TREE = "SOFTWARE\\SAMP";
+constexpr auto REG_CONFIG_KEY = "MiNotifyLevelFlags";
+
+namespace Debug {
+    enum LogLevel {
+        Disabled = 0, // default
+        InitNotify = 1 << 0,
+        DetectNotify = 1 << 1,
+    };
+
+    static DWORD dwLogLevel;
+};
 
 class Plugin {
 public:
@@ -17,7 +29,7 @@ public:
 
     void MemSet(LPVOID lpAddr, int iVal, size_t dwSize);
 
-    static void AddChatMessageDebug(std::uint32_t dwColor, std::string sFmrMessage, ...); // DEBUG
+    static void AddChatMessageDebug(Debug::LogLevel dwLevel, std::uint32_t dwColor, std::string sFmtMessage, ...); // DEBUG
 private:
     PluginRPC RPC;
     kthook::kthook_simple<CTimerProto> hookCTimerUpdate{ reinterpret_cast<void*>(0x561B10) };
@@ -30,6 +42,8 @@ private:
 /// <summary>
 /// Debug helpers
 /// </summary>
+
+    LONG GetDWORDRegKey(HKEY hKey, const std::string& strValueName, DWORD& nValue, DWORD nDefaultValue);
 
     void PrintBin(std::string str);
 

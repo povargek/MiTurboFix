@@ -6,9 +6,21 @@
 #include <iomanip>
 #include <sstream>
 
-
+extern DWORD Debug::dwLogLevel;
 
 Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
+    HKEY hKey;
+    LONG lRes = RegOpenKeyExA(HKEY_CURRENT_USER, REG_CONFIG_TREE, 0, KEY_READ, &hKey);
+
+    if (SUCCEEDED(lRes)) {
+
+        DWORD dwNotifyFlagsRaw;
+
+        if (SUCCEEDED(GetDWORDRegKey(hKey, REG_CONFIG_KEY, dwNotifyFlagsRaw, 0))) {
+            Debug::dwLogLevel = dwNotifyFlagsRaw; // Set log level
+        }
+    }
+
     InitConsole();
 
     using namespace std::placeholders;
@@ -21,6 +33,9 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
     static bool inited = false;
+    static bool msgShow = false;
+    static DWORD64 dwTickShow = 0;
+
     if (!inited && rakhook::initialize()) {
         // GTA SA Patches what required SA:MP
         InstallPatchAddHospitalRestartPoint();
@@ -35,9 +50,19 @@ void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ShowPlayerDialog, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::InitMenu, &RPC, _1, _2);
 
+        dwTickShow = GetTickCount64();
 
         inited = true;
     }
+
+    if (inited && GetTickCount64() > (dwTickShow + 3000) && !msgShow) { // dirty hack. Can't emulate RPC when not connected
+        Plugin::AddChatMessageDebug(Debug::LogLevel::InitNotify, 0xFFFFFFFF, "MiTurboFix by ? inited. THIS MESSAGE CAN BE DISABLED. You need remove registry key:");
+        Plugin::AddChatMessageDebug(Debug::LogLevel::InitNotify, 0xFFFFFFFF, "HKEY_CURRENT_USER//%s  key '%s'", REG_CONFIG_TREE, REG_CONFIG_KEY);
+
+        msgShow = true;
+    }
+
+
     return hook.get_trampoline()();
 }
 
@@ -45,7 +70,7 @@ void Plugin::CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMe
     char* text, uint32_t duration, uint16_t style)
 {
     if (style > 6) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": GameText bad style = %d, strlen = %d", style, strlen(text));
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 0xFFFFFFFF, __FUNCTION__ ": GameText bad style = %d, strlen = %d", style, strlen(text));
 
         return;
     }
@@ -80,6 +105,26 @@ void Plugin::MemSet(LPVOID lpAddr, int iVal, size_t dwSize)
 /// <summary>
 /// DEBUG Helpers
 /// </summary>
+/// 
+/// 
+LONG Plugin::GetDWORDRegKey(HKEY hKey, const std::string& strValueName, DWORD& nValue, DWORD nDefaultValue)
+{
+    nValue = nDefaultValue;
+    DWORD dwBufferSize(sizeof(DWORD));
+    DWORD nResult(0);
+    LONG nError = ::RegQueryValueExA(hKey,
+        strValueName.c_str(),
+        0,
+        NULL,
+        reinterpret_cast<LPBYTE>(&nResult),
+        &dwBufferSize);
+    if (ERROR_SUCCESS == nError)
+    {
+        nValue = nResult;
+    }
+    return nError;
+}
+
 
 void Plugin::PrintBin(std::string str)
 {
@@ -91,15 +136,22 @@ void Plugin::PrintBin(std::string str)
 }
 
 /// <summary>
-/// Add a debug chat message + WinDbg Message. Displayed ONLY IF you compile a DEBUG build
+/// Add a debug chat message + WinDbg Message. Displayed ONLY IF you add a registry key:
+/// HKEY_CURRENT_USER\SOFTWARE\SAMP     Key 'MiNotifyLevelFlags' DWORD
+/// LogLevel::Disabled - Logging disabled
+/// LogLevel::InitNotify - Show only message about plugin loaded
+/// LogLevel::DetectNotify - Log all detections
 /// </summary>
+/// <param name="dwLevel">Message Log Level</param>
 /// <param name="dwColor">Message Color</param>
 /// <param name="sFmtMessage">Message to format</param>
 /// <param name="">Args...</param>
-void Plugin::AddChatMessageDebug(std::uint32_t dwColor, std::string sFmtMessage, ...)
+void Plugin::AddChatMessageDebug(Debug::LogLevel dwLevel, std::uint32_t dwColor, std::string sFmtMessage, ...)
 {
-#ifdef _DEBUG
     if (!rakhook::initialized)
+        return;
+
+    if (!(dwLevel & Debug::dwLogLevel))
         return;
 
     char szBuffer[144];
@@ -120,5 +172,4 @@ void Plugin::AddChatMessageDebug(std::uint32_t dwColor, std::string sFmtMessage,
     rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);
 
     OutputDebugStringA(std::string(std::string("[MiTurboFix] ") + sMessage).data());
-#endif
 }

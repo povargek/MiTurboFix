@@ -13,7 +13,6 @@
 
 #include "misc.h"
 
-
 template <typename T>
 std::string readWithSize(RakNet::BitStream& bs, size_t max = 0) {
     T size;
@@ -46,7 +45,8 @@ bool BitStreamIgnoreString(RakNet::BitStream& bs, size_t max = 0) {
     size_t tokenLen = (maxLineLen > 0 && token.length() > maxLineLen) ? maxLineLen : token.length();
 
     if (maxLineLen > 0 && token.length() > maxLineLen) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad listitem len = %d", token.length());
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad listitem len = %d", token.length());
     }
 
     return token.substr(0, tokenLen);
@@ -97,7 +97,8 @@ bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
     std::string sAnimLib = readWithSize<uint8_t>(*bs, iAnimLibMaxLen);
 
     if (sAnimLib.length() < 1 || sAnimLib.length() > iAnimLibMaxLen) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
 
         return false;
     }
@@ -105,7 +106,8 @@ bool PluginRPC::ApplyAnimation(unsigned char& id, RakNet::BitStream* bs) {
     std::string sAnimName = readWithSize<uint8_t>(*bs, iAnimNameMaxLen);
 
     if (sAnimName.length() < 1 || sAnimName.length() > iAnimNameMaxLen) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
 
         return false;
     }
@@ -128,7 +130,8 @@ bool PluginRPC::ApplyActorAnimation(unsigned char& id, RakNet::BitStream* bs) {
     std::string sAnimLib = readWithSize<uint8_t>(*bs, iAnimLibMaxLen);
 
     if (sAnimLib.length() < 1 || sAnimLib.length() > iAnimLibMaxLen) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad bAnimLibLength = %d", iAnimLibMaxLen);
 
         return false;
     }
@@ -136,7 +139,8 @@ bool PluginRPC::ApplyActorAnimation(unsigned char& id, RakNet::BitStream* bs) {
     std::string sAnimName = readWithSize<uint8_t>(*bs, iAnimNameMaxLen);
 
     if (sAnimName.length() < 1 || sAnimName.length() > iAnimNameMaxLen) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad bAnimNameLength = %d", iAnimNameMaxLen);
 
         return false;
     }
@@ -202,7 +206,8 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
     bs->Read(bMenuID);
 
     if (bMenuID >= Menu::MAX_MENUS) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad bMenuID = %d", bMenuID);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad bMenuID = %d", bMenuID);
 
         return false;
     }
@@ -211,7 +216,8 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
     bs->Read(szText, Menu::MAX_MENU_LINE);
 
     if (!String::ValidateLen(szText, Menu::MAX_MENU_LINE)) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuTitle length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad MenuTitle length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
 
         return false;
     }
@@ -231,7 +237,8 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
     bs->Read(szText, Menu::MAX_MENU_LINE);
 
     if (!String::ValidateLen(szText, Menu::MAX_MENU_LINE)) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuHeaderCol1 length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad MenuHeaderCol1 length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
 
         return false;
     }
@@ -239,13 +246,15 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
     unsigned char byteRowCount;
     
     if (!bs->Read(byteRowCount)) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad can't read MenuRowCountCol1");
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad can't read MenuRowCountCol1");
 
         return false;
     }
 
     if (byteRowCount > Menu::MAX_MENU_ITEMS) {
-        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCountCol1 = %d", byteRowCount);
+        Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+            0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCountCol1 = %d", byteRowCount);
 
         return false;
     }
@@ -254,7 +263,8 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
         bs->Read(szText, Menu::MAX_MENU_LINE);
 
         if (!String::ValidateLen(szText, Menu::MAX_MENU_LINE)) {
-            Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCol1(%d) length = %d", i, strnlen_s(szText, Menu::MAX_MENU_LINE));
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+                0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCol1(%d) length = %d", i, strnlen_s(szText, Menu::MAX_MENU_LINE));
 
             return false;
         }
@@ -264,19 +274,22 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
         bs->Read(szText, Menu::MAX_MENU_LINE);
 
         if (!String::ValidateLen(szText, Menu::MAX_MENU_LINE)) {
-            Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuHeaderCol2 length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+                0xFFFFFFFF, __FUNCTION__ ": bad MenuHeaderCol2 length = %d", strnlen_s(szText, Menu::MAX_MENU_LINE));
 
             return false;
         }
 
         if (!bs->Read(byteRowCount)) {
-            Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad can't read MenuRowCountCol1");
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+                0xFFFFFFFF, __FUNCTION__ ": bad can't read MenuRowCountCol1");
 
             return false;
         }
 
         if (byteRowCount > Menu::MAX_MENU_ITEMS) {
-            Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCountCol2 = %d", byteRowCount);
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify,
+                0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCountCol2 = %d", byteRowCount);
 
             return false;
         }
@@ -285,7 +298,8 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
             bs->Read(szText, Menu::MAX_MENU_LINE);
 
             if (!String::ValidateLen(szText, Menu::MAX_MENU_LINE)) {
-                Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCol2(%d) length = %d", i, strnlen_s(szText, Menu::MAX_MENU_LINE));
+                Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 
+                    0xFFFFFFFF, __FUNCTION__ ": bad MenuRowCol2(%d) length = %d", i, strnlen_s(szText, Menu::MAX_MENU_LINE));
 
                 return false;
             }
