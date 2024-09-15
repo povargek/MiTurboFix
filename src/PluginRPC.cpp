@@ -1,6 +1,8 @@
 #include "PluginRPC.h"
 #include "Plugin.h"
 
+#include "misc.h"
+
 #include <string>
 #include <vector>
 #include <numeric>
@@ -9,8 +11,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <sampapi/CChat.h>
-#include <sampapi/CDialog.h>
+
 #include <RakNet/StringCompressor.h>
 #include "RPCEnumerations.h"
 
@@ -172,10 +173,7 @@ bool PluginRPC::ShowPlayerDialog(unsigned char& id, RakNet::BitStream* bs) {
     bs->Read(sDialogID);
     bs->Read(bDialogStyle);
 
-    if (bDialogStyle != sampapi::v037r1::CDialog::DIALOG_LIST
-        && bDialogStyle != sampapi::v037r1::CDialog::DIALOG_TABLIST
-        && bDialogStyle != sampapi::v037r1::CDialog::DIALOG_HEADERSLIST
-        ) return true;
+    if (!DialogType::IsListingStyle(bDialogStyle)) return true;
 
     title = readWithSize<unsigned char>(*bs);
     but1 = readWithSize<unsigned char>(*bs);

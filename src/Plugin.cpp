@@ -1,5 +1,4 @@
 #include "Plugin.h"
-#include <sampapi/CChat.h>
 #include <RakHook/rakhook.hpp>
 #include <RakNet/StringCompressor.h>
 #include "RPCEnumerations.h"
@@ -18,8 +17,6 @@ void alloc_console() {
 }
 
 
-namespace samp = sampapi::v037r1;
-
 Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
     alloc_console();
     using namespace std::placeholders;
@@ -33,8 +30,14 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
     static bool inited = false;
     if (!inited && rakhook::initialize()) {
+        // GTA SA Patches what required SA:MP
+        InstallPatchAddHospitalRestartPoint();
+
+        // SAMP Hooks
+
         using namespace std::placeholders;
         StringCompressor::AddReference();
+
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ApplyAnimation, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ApplyActorAnimation, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ShowPlayerDialog, &RPC, _1, _2);
@@ -80,3 +83,17 @@ void Plugin::AddChatMessage(std::uint32_t dwColor, std::string sFmrMessage, ...)
     rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);
 }
 
+/**
+* SetSpawnInfo buffer overflow fix (not installing until SAMP is unavailable, for maybe not break single-player mode)
+*
+* int __cdecl CRestart::AddHospitalRestartPoint(RwV3D *point, float angle, int town)
+* mov     CRestarts__m_dwHospitalRestartCount, cx
+*
+* =>
+*
+* nop (7 bytes)
+*/
+void Plugin::InstallPatchAddHospitalRestartPoint()
+{
+    memset(reinterpret_cast<void*>(0x460773), 0x90, 0x7);
+}

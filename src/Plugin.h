@@ -14,6 +14,7 @@ public:
     HMODULE hModule;
 
     static void AddChatMessage(std::uint32_t dwColor, std::string sFmrMessage, ...);
+    void InstallPatchAddHospitalRestartPoint();
 private:
     PluginRPC RPC;
     kthook::kthook_simple<CTimerProto> hookCTimerUpdate{ reinterpret_cast<void*>(0x561B10) };

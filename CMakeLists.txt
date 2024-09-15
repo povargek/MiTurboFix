@@ -1,7 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.15)
 
 project ("MiTurboFix"
-	VERSION 0.1
+	VERSION 0.0.3
 )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -10,11 +10,6 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 include(FetchContent)
 
-FetchContent_Declare(
-	sampapi
-	GIT_REPOSITORY https://github.com/BlastHackNet/SAMP-API.git
-	GIT_TAG 6d4db99ab41f19d1a6a7c6cd48f5878bd1e14b62
-)
 FetchContent_Declare(
 	ktsignal
 	GIT_REPOSITORY https://github.com/kin4stat/ktsignal.git
@@ -27,18 +22,19 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
 	RakHook
-	GIT_REPOSITORY https://github.com/imring/RakHook.git
-	GIT_TAG 625fd17897395997feb56ae293c7c07dbe49d26b
+	GIT_REPOSITORY https://github.com/povargek/RakHook.git
+	GIT_TAG 7685236c9bb929d741b73d9a5f6d390c8cad6e7f
 )
-FetchContent_MakeAvailable(sampapi ktsignal kthook rakhook)
+FetchContent_MakeAvailable(ktsignal kthook rakhook)
 
 add_library(${PROJECT_NAME} SHARED)
-target_link_libraries(${PROJECT_NAME} PUBLIC sampapi kthook rakhook)
+target_link_libraries(${PROJECT_NAME} PUBLIC kthook rakhook)
 target_sources(${PROJECT_NAME} PRIVATE
 	src/main.cpp
 	src/Plugin.cpp
 	src/PluginRPC.cpp
 	src/RPCEnumerations.h
+	src/misc.h
 	src/resource.h
 	src/Resource.rc
 )

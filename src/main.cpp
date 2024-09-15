@@ -1,8 +1,6 @@
 ﻿#include "Plugin.h"
 #include <memory>
 #include <RakHook/rakhook.hpp>
-#include <sampapi/CChat.h>
-#include <sampapi/sampapi.h>
 
 
 std::unique_ptr<Plugin> plugin;
