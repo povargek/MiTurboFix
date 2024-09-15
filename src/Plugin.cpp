@@ -95,5 +95,10 @@ void Plugin::AddChatMessage(std::uint32_t dwColor, std::string sFmrMessage, ...)
 */
 void Plugin::InstallPatchAddHospitalRestartPoint()
 {
-    memset(reinterpret_cast<void*>(0x460773), 0x90, 0x7);
+    auto address = reinterpret_cast<void*>(0x460773);
+    auto size = 0x7;
+    DWORD oldProtection = PAGE_EXECUTE_READWRITE;
+    VirtualProtect(address, size, oldProtection, &oldProtection);
+    memset(address, 0x90, size);
+    VirtualProtect(address, size, oldProtection, &oldProtection);
 }
