@@ -3,22 +3,14 @@
 #include <RakNet/StringCompressor.h>
 #include "RPCEnumerations.h"
 
+#include <iomanip>
+#include <sstream>
 
-void alloc_console() {
-#ifdef _DEBUG
-    AllocConsole();
-    SetConsoleOutputCP(1251);
-
-    FILE* fDummy;
-    freopen_s(&fDummy, "CONIN$", "r", stdin);
-    freopen_s(&fDummy, "CONOUT$", "w", stderr);
-    freopen_s(&fDummy, "CONOUT$", "w", stdout);
-#endif
-}
 
 
 Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
-    alloc_console();
+    InitConsole();
+
     using namespace std::placeholders;
     hookCTimerUpdate.set_cb(std::bind(&Plugin::mainloop, this, _1));
     hookCTimerUpdate.install();
@@ -41,6 +33,8 @@ void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ApplyAnimation, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ApplyActorAnimation, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ShowPlayerDialog, &RPC, _1, _2);
+        rakhook::on_receive_rpc += std::bind(&PluginRPC::InitMenu, &RPC, _1, _2);
+
 
         inited = true;
     }
@@ -51,37 +45,14 @@ void Plugin::CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMe
     char* text, uint32_t duration, uint16_t style)
 {
     if (style > 6) {
-#ifdef _DEBUG
-        Plugin::AddChatMessage(0xFFFFFFFF, __FUNCTION__ ": bad style = %d, strlen = %d", style, strlen(text));
-#endif
+        Plugin::AddChatMessageDebug(0xFFFFFFFF, __FUNCTION__ ": GameText bad style = %d, strlen = %d", style, strlen(text));
+
         return;
     }
 
     return hook.get_trampoline()(text, duration, style);
 }
 
-void Plugin::AddChatMessage(std::uint32_t dwColor, std::string sFmrMessage, ...)
-{
-    if (!rakhook::initialized)
-        return;
-
-    char szBuffer[144];
-
-    memset(szBuffer, 0x0, sizeof(szBuffer));
-
-    va_list args;
-    va_start(args, sFmrMessage);
-    vsnprintf(szBuffer, 144, sFmrMessage.c_str(), args);
-    va_end(args);
-
-    std::string sMessage = std::string(szBuffer);
-
-    RakNet::BitStream bs;
-    bs.Write<std::uint32_t>(dwColor);
-    bs.Write<std::uint32_t>(sMessage.size());
-    bs.Write(sMessage.data(), sMessage.size());
-    rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);
-}
 
 /**
 * SetSpawnInfo buffer overflow fix (not installing until SAMP is unavailable, for maybe not break single-player mode)
@@ -95,10 +66,59 @@ void Plugin::AddChatMessage(std::uint32_t dwColor, std::string sFmrMessage, ...)
 */
 void Plugin::InstallPatchAddHospitalRestartPoint()
 {
-    auto address = reinterpret_cast<void*>(0x460773);
-    auto size = 0x7;
+    MemSet(reinterpret_cast<void*>(0x460773), 0x90, 0x7);
+}
+
+void Plugin::MemSet(LPVOID lpAddr, int iVal, size_t dwSize)
+{
     DWORD oldProtection = PAGE_EXECUTE_READWRITE;
-    VirtualProtect(address, size, oldProtection, &oldProtection);
-    memset(address, 0x90, size);
-    VirtualProtect(address, size, oldProtection, &oldProtection);
+    VirtualProtect(lpAddr, dwSize, oldProtection, &oldProtection);
+    memset(lpAddr, iVal, dwSize);
+    VirtualProtect(lpAddr, dwSize, oldProtection, &oldProtection);
+}
+
+/// <summary>
+/// DEBUG Helpers
+/// </summary>
+
+void Plugin::PrintBin(std::string str)
+{
+#ifdef _DEBUG
+    for (char c : str) { std::cout << std::hex << std::setfill('0') << std::setw(2) << int(c); }
+
+    std::cout << std::endl;
+#endif
+}
+
+/// <summary>
+/// Add a debug chat message + WinDbg Message. Displayed ONLY IF you compile a DEBUG build
+/// </summary>
+/// <param name="dwColor">Message Color</param>
+/// <param name="sFmtMessage">Message to format</param>
+/// <param name="">Args...</param>
+void Plugin::AddChatMessageDebug(std::uint32_t dwColor, std::string sFmtMessage, ...)
+{
+#ifdef _DEBUG
+    if (!rakhook::initialized)
+        return;
+
+    char szBuffer[144];
+
+    memset(szBuffer, 0x0, sizeof(szBuffer));
+
+    va_list args;
+    va_start(args, sFmtMessage);
+    vsnprintf(szBuffer, 144, sFmtMessage.c_str(), args);
+    va_end(args);
+
+    std::string sMessage = std::string(szBuffer);
+
+    RakNet::BitStream bs;
+    bs.Write<std::uint32_t>(dwColor);
+    bs.Write<std::uint32_t>(sMessage.size());
+    bs.Write(sMessage.data(), sMessage.size());
+    rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);
+
+    OutputDebugStringA(std::string(std::string("[MiTurboFix] ") + sMessage).data());
+#endif
 }

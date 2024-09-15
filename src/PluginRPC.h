@@ -12,4 +12,5 @@ public:
     bool ApplyAnimation(unsigned char& id, RakNet::BitStream* bs);
     bool ApplyActorAnimation(unsigned char& id, RakNet::BitStream* bs);
     bool ShowPlayerDialog(unsigned char& id, RakNet::BitStream* bs);
+    bool InitMenu(unsigned char& id, RakNet::BitStream* bs);
 };
