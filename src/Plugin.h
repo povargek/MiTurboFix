@@ -7,17 +7,25 @@
 using CTimerProto = void( __cdecl* )();
 using CMessagesProto = void(__cdecl*)(char* text, uint32_t duration, uint16_t style);
 
-constexpr auto REG_CONFIG_TREE = "SOFTWARE\\SAMP";
-constexpr auto REG_CONFIG_KEY = "MiNotifyLevelFlags";
+constexpr auto REG_CONFIG_TREE          = "SOFTWARE\\SAMP";
+constexpr auto REG_CONFIG_KEY           = "MiNotifyLevelFlags";
+constexpr auto REG_LOG_FILE_PATH_KEY    = "MiLogFile";
+
+constexpr auto LOG_FILE_PATH_DEFAULT    = "mi_fix.log";
+
+
 
 namespace Debug {
     enum LogLevel {
         Disabled = 0, // default
         InitNotify = 1 << 0,
         DetectNotify = 1 << 1,
+        LogToFile = 1 << 2,
     };
 
     static DWORD dwLogLevel;
+    static std::string sLogFilePath;
+
 };
 
 class Plugin {
@@ -30,6 +38,7 @@ public:
     void MemSet(LPVOID lpAddr, int iVal, size_t dwSize);
 
     static void AddChatMessageDebug(Debug::LogLevel dwLevel, std::uint32_t dwColor, std::string sFmtMessage, ...); // DEBUG
+    static void LogToFile(std::string message);
 private:
     PluginRPC RPC;
     kthook::kthook_simple<CTimerProto> hookCTimerUpdate{ reinterpret_cast<void*>(0x561B10) };
@@ -44,6 +53,7 @@ private:
 /// </summary>
 
     LONG GetDWORDRegKey(HKEY hKey, const std::string& strValueName, DWORD& nValue, DWORD nDefaultValue);
+    LONG GetStringRegKey(HKEY hKey, const std::string& strValueName, std::string& strValue, const std::string& strDefaultValue);
 
     void PrintBin(std::string str);
 
@@ -59,5 +69,25 @@ private:
         freopen_s(&fDummy, "CONOUT$", "w", stdout);
 #endif
     }
-
 };
+
+namespace MemAddr {
+    constexpr std::uintptr_t ChatRef[] = {
+        0x21A0E4,
+        0x21A0EC,
+        0x26E8C8,
+        0x26E9F8,
+        0x26EB80,
+        0x2ACA10
+    };
+
+    constexpr std::uintptr_t AddToChatMessage[] = {
+        0x645A0,
+        0x64670,
+        0x679F0,
+        0x68130,
+        0x68170,
+        0x67BE0
+    };
+};
+

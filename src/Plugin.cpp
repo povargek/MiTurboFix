@@ -7,6 +7,8 @@
 #include <sstream>
 
 extern DWORD Debug::dwLogLevel;
+extern std::string Debug::sLogFilePath;
+
 
 Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
     HKEY hKey;
@@ -18,6 +20,14 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 
         if (SUCCEEDED(GetDWORDRegKey(hKey, REG_CONFIG_KEY, dwNotifyFlagsRaw, 0))) {
             Debug::dwLogLevel = dwNotifyFlagsRaw; // Set log level
+        }
+
+        if (Debug::dwLogLevel & Debug::LogLevel::LogToFile) {
+            std::string sLogFilePathRaw;
+
+            if (SUCCEEDED(GetStringRegKey(hKey, REG_LOG_FILE_PATH_KEY, sLogFilePathRaw, LOG_FILE_PATH_DEFAULT))) {
+                Debug::sLogFilePath = sLogFilePathRaw;
+            }
         }
     }
 
@@ -33,8 +43,6 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
     static bool inited = false;
-    static bool msgShow = false;
-    static DWORD64 dwTickShow = 0;
 
     if (!inited && rakhook::initialize()) {
         // GTA SA Patches what required SA:MP
@@ -50,16 +58,10 @@ void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
         rakhook::on_receive_rpc += std::bind(&PluginRPC::ShowPlayerDialog, &RPC, _1, _2);
         rakhook::on_receive_rpc += std::bind(&PluginRPC::InitMenu, &RPC, _1, _2);
 
-        dwTickShow = GetTickCount64();
-
-        inited = true;
-    }
-
-    if (inited && GetTickCount64() > (dwTickShow + 3000) && !msgShow) { // dirty hack. Can't emulate RPC when not connected
         Plugin::AddChatMessageDebug(Debug::LogLevel::InitNotify, 0xFFFFFFFF, "MiTurboFix by ? inited. THIS MESSAGE CAN BE DISABLED. You need remove registry key:");
         Plugin::AddChatMessageDebug(Debug::LogLevel::InitNotify, 0xFFFFFFFF, "HKEY_CURRENT_USER//%s  key '%s'", REG_CONFIG_TREE, REG_CONFIG_KEY);
 
-        msgShow = true;
+        inited = true;
     }
 
 
@@ -125,6 +127,19 @@ LONG Plugin::GetDWORDRegKey(HKEY hKey, const std::string& strValueName, DWORD& n
     return nError;
 }
 
+LONG Plugin::GetStringRegKey(HKEY hKey, const std::string& strValueName, std::string& strValue, const std::string& strDefaultValue)
+{
+    strValue = strDefaultValue;
+    CHAR szBuffer[512];
+    DWORD dwBufferSize = sizeof(szBuffer);
+    ULONG nError;
+    nError = RegQueryValueExA(hKey, strValueName.c_str(), 0, NULL, (LPBYTE)szBuffer, &dwBufferSize);
+    if (ERROR_SUCCESS == nError)
+    {
+        strValue = szBuffer;
+    }
+    return nError;
+}
 
 void Plugin::PrintBin(std::string str)
 {
@@ -165,11 +180,45 @@ void Plugin::AddChatMessageDebug(Debug::LogLevel dwLevel, std::uint32_t dwColor,
 
     std::string sMessage = std::string(szBuffer);
 
-    RakNet::BitStream bs;
+    auto sampVersion = rakhook::samp_version();
+
+    if (sampVersion != rakhook::samp_ver::unknown) {
+        LPVOID lpChatRef = *(LPVOID**)(rakhook::samp_addr(MemAddr::ChatRef[(int) sampVersion]));
+        ((void(__thiscall*)(LPVOID, DWORD, const char*))(rakhook::samp_addr(MemAddr::AddToChatMessage[(int)sampVersion])))(lpChatRef, dwColor, sMessage.data());
+    }
+
+    /*RakNet::BitStream bs;
     bs.Write<std::uint32_t>(dwColor);
     bs.Write<std::uint32_t>(sMessage.size());
     bs.Write(sMessage.data(), sMessage.size());
-    rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);
+    rakhook::emul_rpc(ScriptRPC::ClientMessage, bs);*/
+
+    if (!(dwLevel & Debug::LogLevel::InitNotify)) {
+        if (Debug::dwLogLevel & Debug::LogLevel::LogToFile) {
+            LogToFile(sMessage);
+        }
+    }
 
     OutputDebugStringA(std::string(std::string("[MiTurboFix] ") + sMessage).data());
+}
+
+void Plugin::LogToFile(std::string message) {
+    if (!(Debug::dwLogLevel & Debug::LogLevel::LogToFile))
+        return;
+
+    time_t now = time(0);
+
+    tm stTimeInfo;
+    stTimeInfo = *localtime(&now);
+
+    auto sTime = std::get_time(&stTimeInfo, "%d-%m-%Y  %H:%M:%S");
+
+    std::filesystem::path path = std::filesystem::current_path() / Debug::sLogFilePath;
+
+    std::ofstream ofs(path, std::ios_base::out | std::ios_base::app);
+    
+    if (ofs.is_open()) {
+        ofs << sTime << '\t' << message << '\n';
+        ofs.close();
+    }
 }
