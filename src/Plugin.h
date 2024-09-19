@@ -7,11 +7,17 @@
 using CTimerProto = void( __cdecl* )();
 using CMessagesProto = void(__cdecl*)(char* text, uint32_t duration, uint16_t style);
 
-constexpr auto REG_CONFIG_TREE          = "SOFTWARE\\SAMP";
-constexpr auto REG_CONFIG_KEY           = "MiNotifyLevelFlags";
-constexpr auto REG_LOG_FILE_PATH_KEY    = "MiLogFile";
+constexpr auto REG_CONFIG_TREE                  = "SOFTWARE\\SAMP";
+constexpr auto REG_CONFIG_KEY                   = "MiNotifyLevelFlags";
+constexpr auto REG_LOG_FILE_DIR_KEY             = L"MiLogDirectory";
+constexpr auto REG_LOG_FILE_PATH_KEY            = L"MiLogFile";
 
-constexpr auto LOG_FILE_PATH_DEFAULT    = "mi_fix.log";
+
+constexpr auto LOG_FOLDER_DEFAULT               = L"";
+constexpr auto LOG_FILE_PATH_DEFAULT            = L"mi_fix.log";
+
+constexpr auto LOG_APPDATA_SUBFOLDER_DEFAULT    = L"MiTurboFix";
+
 
 
 
@@ -24,7 +30,8 @@ namespace Debug {
     };
 
     static DWORD dwLogLevel;
-    static std::string sLogFilePath;
+    static std::wstring sLogFolderPath;
+    static std::wstring sLogFilePath;
 
 };
 
@@ -38,6 +45,10 @@ public:
     void MemSet(LPVOID lpAddr, int iVal, size_t dwSize);
 
     static void AddChatMessageDebug(Debug::LogLevel dwLevel, std::uint32_t dwColor, std::string sFmtMessage, ...); // DEBUG
+
+    static void AddDebugMessageA(std::string sFmtMessage, ...);
+    static void AddDebugMessageW(std::wstring sFmtMessage, ...);
+
     static void LogToFile(std::string message);
 private:
     PluginRPC RPC;
@@ -53,7 +64,8 @@ private:
 /// </summary>
 
     LONG GetDWORDRegKey(HKEY hKey, const std::string& strValueName, DWORD& nValue, DWORD nDefaultValue);
-    LONG GetStringRegKey(HKEY hKey, const std::string& strValueName, std::string& strValue, const std::string& strDefaultValue);
+    LONG GetStringRegKeyA(HKEY hKey, const std::string& strValueName, std::string& strValue, const std::string& strDefaultValue);
+    LONG GetStringRegKeyW(HKEY hKey, const std::wstring& strValueName, std::wstring& strValue, const std::wstring& strDefaultValue);
 
     void PrintBin(std::string str);
 
