@@ -190,7 +190,7 @@ bool PluginRPC::InitMenu(unsigned char& id, RakNet::BitStream* bs) {
         return true;
 
     unsigned char bMenuID;
-    unsigned char bIsTwoColumns;
+    unsigned int bIsTwoColumns;
 
     char szText[Menu::MAX_MENU_LINE];
 
