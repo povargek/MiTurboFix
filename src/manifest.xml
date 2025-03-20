@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+<assemblyIdentity
+    version="0.0.7.0"
+    processorArchitecture="*"
+    name="MiTurboFix.SAMP.InternationalCommunity"
+    type="win32"
+/>
+<description>Plugin for fix GTA SA:MP vulnerabilities (e.g. RCE)</description>
+</assembly>
