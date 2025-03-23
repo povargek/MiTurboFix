@@ -8,7 +8,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
+
+
 include(FetchContent)
+include(cmake/ManifestFn.cmake.in)
 
 FetchContent_Declare(
 	ktsignal
@@ -27,6 +31,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ktsignal kthook rakhook)
 
+
 add_library(${PROJECT_NAME} SHARED)
 target_link_libraries(${PROJECT_NAME} PUBLIC kthook rakhook)
 target_sources(${PROJECT_NAME} PRIVATE
@@ -37,11 +42,21 @@ target_sources(${PROJECT_NAME} PRIVATE
 	src/misc.h
 	src/resource.h
 	src/Resource.rc
+	src/manifest.xml
+	src/icon_keka.ico
 )
+
+if (WIN32)
+    set(CMAKE_SHARED_LINKER_FLAGS /MANIFEST:NO)
+endif()
 
 set_target_properties(${PROJECT_NAME}
 	PROPERTIES
 	OUTPUT_NAME ${PROJECT_NAME}
 	SUFFIX ".asi"
 )
+
+
+add_manifest("${SOURCE_DIR}/manifest.xml")
+
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)

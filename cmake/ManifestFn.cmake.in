@@ -1,0 +1,15 @@
+# add_manifest(<target> <manifest file>)
+#
+# Adds a manifest file (https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests)
+# to an EXE
+function(add_manifest MANIFEST_FILE)
+    if(NOT MANIFEST_FILE)
+      message(FATAL_ERROR "You must provide a manifest file")
+    endif()
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND "mt.exe" -manifest \"${MANIFEST_FILE}\" -outputresource:"$(OutDir)$(TargetName)$(TargetExt)"\;\#1
+        COMMENT "Adding manifest..."
+)
+endfunction()
