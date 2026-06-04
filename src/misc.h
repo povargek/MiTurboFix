@@ -14,7 +14,7 @@ namespace DialogType  {
 
     };
 
-    bool IsListingStyle(int iDialogType) {
+    inline bool IsListingStyle(int iDialogType) {
         switch (iDialogType) {
             case List: case TabList: case HeadersList: 
                 return true;
@@ -40,6 +40,19 @@ namespace Menu {
         unsigned char bPadding[8 - ((MAX_MENU_ITEMS + 1) % 8)];
     };
 };
+
+namespace Texture {
+    static const uint32_t kRwStruct = 0x01;
+    static const uint32_t kRwTextureDictionary = 0x16;
+
+    struct ChunkHeader 
+    {
+        uint32_t type;
+        uint32_t length;
+        uint32_t version;
+    };
+};
+
 
 /// <summary>
 /// String helpers

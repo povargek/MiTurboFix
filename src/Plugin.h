@@ -6,6 +6,8 @@
 
 using CTimerProto = void( __cdecl* )();
 using CMessagesProto = void(__cdecl*)(char* text, uint32_t duration, uint16_t style);
+using LoadTxdProto = int(__cdecl*)(uint32_t txdIndex, char* fileName);
+
 
 constexpr auto REG_CONFIG_TREE                  = "SOFTWARE\\SAMP";
 constexpr auto REG_CONFIG_KEY                   = "MiNotifyLevelFlags";
@@ -40,7 +42,18 @@ public:
     Plugin(HMODULE hModule);
     HMODULE hModule;
 
+    HMODULE GetLibraryPtr() { 
+        return hModule;
+    }
+
+	HWND GetMainWindowHandle() {
+		return *(HWND *)0xC97C1C;
+	}
+
     void InstallPatchAddHospitalRestartPoint();
+    bool IsTxdFileSafe(const char* fileName);
+    bool ReadExact(FILE* file, void* lpOut, size_t dwSize);
+
 
     void MemSet(LPVOID lpAddr, int iVal, size_t dwSize);
 
@@ -54,9 +67,14 @@ private:
     PluginRPC RPC;
     kthook::kthook_simple<CTimerProto> hookCTimerUpdate{ reinterpret_cast<void*>(0x561B10) };
     kthook::kthook_simple<CMessagesProto> hookCMessages_AddBigMessageHooked{ reinterpret_cast<void*>(0x69F2B0) };
+    kthook::kthook_simple<LoadTxdProto> hookLoadTxdFile { reinterpret_cast<void*>(0x7320B0) };
+
+
+    
 
     void mainloop(const decltype(hookCTimerUpdate)& hook);
     void CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMessageHooked)& hook, char* text, uint32_t duration, uint16_t style);
+    int LoadTxdFileHooked(const decltype(hookLoadTxdFile)& hook, uint32_t txdIndex, char* fileName);
 
 
 /// <summary>
@@ -100,6 +118,12 @@ namespace MemAddr {
         0x68130,
         0x68170,
         0x67BE0
+    };
+
+    constexpr std::uintptr_t LoadTexture[] = {
+        0x7320B0, // LoadTxd jmp 
+        0x01, // RwStruct offset
+        0x16 // RwTextureDictionary offset
     };
 };
 

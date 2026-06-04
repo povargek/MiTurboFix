@@ -1,4 +1,7 @@
+#pragma comment(lib, "Comctl32.lib")
 #include "Plugin.h"
+#include "misc.h"
+
 #include <RakHook/rakhook.hpp>
 #include <RakNet/StringCompressor.h>
 #include "RPCEnumerations.h"
@@ -47,6 +50,10 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 
     hookCMessages_AddBigMessageHooked.set_cb(std::bind(&Plugin::CMessages_AddBigMessageHooked, this, _1, _2, _3, _4));
     hookCMessages_AddBigMessageHooked.install();
+
+    hookLoadTxdFile.set_cb(std::bind(&Plugin::LoadTxdFileHooked, this, _1, _2, _3));
+    hookLoadTxdFile.install();
+
 }
 
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
@@ -55,6 +62,7 @@ void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
     if (!inited && rakhook::initialize()) {
         // GTA SA Patches what required SA:MP
         InstallPatchAddHospitalRestartPoint();
+        InitCommonControls();
 
         // SAMP Hooks
 
@@ -88,6 +96,56 @@ void Plugin::CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMe
     return hook.get_trampoline()(text, duration, style);
 }
 
+int Plugin::LoadTxdFileHooked(const decltype(hookLoadTxdFile)& hook, uint32_t txdIndex, char* fileName)
+{
+    if (fileName && strlen(fileName) > 0) {
+        if (!Plugin::IsTxdFileSafe(fileName)) {
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 0xFFFFFFFF, __FUNCTION__ ": TXD malformed. Index = %d, FileName = %s", txdIndex, fileName);
+
+            return 0;
+        }
+    }
+
+
+    return hook.get_trampoline()(txdIndex, fileName);
+}
+
+
+bool Plugin::ReadExact(FILE* file, void* lpOut, size_t dwSize) {
+    return fread_s(lpOut, dwSize, 1, dwSize, file) == dwSize;
+}
+
+bool Plugin::IsTxdFileSafe(const char* fileName) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, fileName, "rb");
+
+    if (err != 0 || !file) {
+        return true;
+    }
+
+    Texture::ChunkHeader outer = {};
+    Texture::ChunkHeader first = {};
+
+    bool ok = false;
+
+    if (file) {
+        if (ReadExact(file, &outer, sizeof(outer)) &&
+            outer.type == Texture::kRwTextureDictionary &&
+            outer.length >= sizeof(Texture::ChunkHeader) &&
+            ReadExact(file, &first, sizeof(first)) &&
+            first.type == Texture::kRwStruct &&
+            first.length == 4) {
+            ok = true;
+        }
+
+        fclose(file);
+    }
+
+  
+
+    return ok;
+}
+
 
 /**
 * SetSpawnInfo buffer overflow fix (not installing until SAMP is unavailable, for maybe not break single-player mode)
@@ -103,6 +161,7 @@ void Plugin::InstallPatchAddHospitalRestartPoint()
 {
     MemSet(reinterpret_cast<void*>(0x460773), 0x90, 0x7);
 }
+
 
 void Plugin::MemSet(LPVOID lpAddr, int iVal, size_t dwSize)
 {
