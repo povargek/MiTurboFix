@@ -1,4 +1,7 @@
+#pragma comment(lib, "Comctl32.lib")
 #include "Plugin.h"
+#include "misc.h"
+
 #include <RakHook/rakhook.hpp>
 #include <RakNet/StringCompressor.h>
 #include "RPCEnumerations.h"
@@ -47,6 +50,13 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
 
     hookCMessages_AddBigMessageHooked.set_cb(std::bind(&Plugin::CMessages_AddBigMessageHooked, this, _1, _2, _3, _4));
     hookCMessages_AddBigMessageHooked.install();
+
+    hookLoadTxdFile.set_cb(std::bind(&Plugin::LoadTxdFileHooked, this, _1, _2, _3));
+    hookLoadTxdFile.install();
+
+    hookRwStreamOpen.set_cb(std::bind(&Plugin::RwStreamOpenHooked, this, _1, _2, _3, _4));
+    hookRwStreamOpen.install();
+
 }
 
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
@@ -55,6 +65,7 @@ void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
     if (!inited && rakhook::initialize()) {
         // GTA SA Patches what required SA:MP
         InstallPatchAddHospitalRestartPoint();
+        InitCommonControls();
 
         // SAMP Hooks
 
@@ -88,6 +99,124 @@ void Plugin::CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMe
     return hook.get_trampoline()(text, duration, style);
 }
 
+int Plugin::LoadTxdFileHooked(const decltype(hookLoadTxdFile)& hook, uint32_t txdIndex, char* fileName)
+{
+    if (fileName && strlen(fileName) > 0) {
+        if (!Plugin::IsTxdFileSafe(fileName)) {
+            Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 0xFFFFFFFF, __FUNCTION__ ": TXD malformed. Index = %d, FileName = %s", txdIndex, fileName);
+
+            return 0;
+        }
+    }
+
+
+    return hook.get_trampoline()(txdIndex, fileName);
+}
+
+
+bool Plugin::ReadExact(FILE* file, void* lpOut, size_t dwSize) {
+    return fread_s(lpOut, dwSize, 1, dwSize, file) == dwSize;
+}
+
+void* Plugin::RwStreamOpenHooked(const decltype(hookRwStreamOpen)& hook, int type, int accessType, const char* pData)
+{
+    if (type == 2 && pData) {
+        size_t len = strlen(pData);
+        if (len > 4 && _stricmp(pData + len - 4, ".dff") == 0) {
+            if (!Plugin::IsDffFileSafe(pData)) {
+                Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 0xFFFFFFFF, __FUNCTION__ ": DFF malformed. File = %s", pData);
+                return nullptr;
+            }
+        }
+    }
+    return hook.get_trampoline()(type, accessType, pData);
+}
+
+bool Plugin::IsDffFileSafe(const char* fileName) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, fileName, "rb");
+
+    if (err != 0 || !file)
+        return true;
+
+    RenderWare::ChunkHeader hdr = {};
+
+    if (!ReadExact(file, &hdr, sizeof(hdr)) || hdr.type != RenderWare::kRwClump) {
+        fclose(file);
+        return true;
+    }
+
+    uint32_t clumpEnd = sizeof(RenderWare::ChunkHeader) + hdr.length;
+    RenderWare::ChunkHeader parent = {};
+    bool safe = true;
+
+    while (ftell(file) + sizeof(RenderWare::ChunkHeader) <= clumpEnd) {
+        RenderWare::ChunkHeader chunk = {};
+        if (!ReadExact(file, &chunk, sizeof(chunk)))
+            break;
+
+        if (chunk.type == RenderWare::kRwAtomic ||
+            chunk.type == RenderWare::kRwLight ||
+            chunk.type == RenderWare::kRwCamera)
+        {
+            parent = chunk;
+            long parentStart = ftell(file);
+
+            RenderWare::ChunkHeader inner = {};
+            if (ReadExact(file, &inner, sizeof(inner)) && inner.type == RenderWare::kRwStruct) {
+                uint32_t maxSize = 0;
+                if (parent.type == RenderWare::kRwAtomic) maxSize = RenderWare::kAtomicStructSize;
+                else if (parent.type == RenderWare::kRwLight) maxSize = RenderWare::kLightStructSize;
+                else if (parent.type == RenderWare::kRwCamera) maxSize = RenderWare::kCameraStructSize;
+
+                if (maxSize && inner.length > maxSize) {
+                    safe = false;
+                    break;
+                }
+            }
+
+            fseek(file, parentStart + parent.length, SEEK_SET);
+            continue;
+        }
+
+        fseek(file, chunk.length, SEEK_CUR);
+    }
+
+    fclose(file);
+    return safe;
+}
+
+bool Plugin::IsTxdFileSafe(const char* fileName) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, fileName, "rb");
+
+    if (err != 0 || !file) {
+        return true;
+    }
+
+    Texture::ChunkHeader outer = {};
+    Texture::ChunkHeader first = {};
+
+    bool ok = false;
+
+    if (file) {
+        if (ReadExact(file, &outer, sizeof(outer)) &&
+            outer.type == Texture::kRwTextureDictionary &&
+            outer.length >= sizeof(Texture::ChunkHeader) &&
+            ReadExact(file, &first, sizeof(first)) &&
+            first.type == Texture::kRwStruct &&
+            first.length == 4) {
+            ok = true;
+        }
+
+        fclose(file);
+    }
+
+  
+
+    return ok;
+}
+
 
 /**
 * SetSpawnInfo buffer overflow fix (not installing until SAMP is unavailable, for maybe not break single-player mode)
@@ -103,6 +232,7 @@ void Plugin::InstallPatchAddHospitalRestartPoint()
 {
     MemSet(reinterpret_cast<void*>(0x460773), 0x90, 0x7);
 }
+
 
 void Plugin::MemSet(LPVOID lpAddr, int iVal, size_t dwSize)
 {
